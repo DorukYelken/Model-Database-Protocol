@@ -35,7 +35,12 @@ LLM Intent (JSON) -> Schema Validation -> Policy Check -> SQLAlchemy Query -> Re
 ## Installation
 
 ```bash
-pip install -e ".[dev]"
+pip install mdbp
+```
+
+For development:
+```bash
+pip install mdbp[dev]
 ```
 
 **Requirements:**
