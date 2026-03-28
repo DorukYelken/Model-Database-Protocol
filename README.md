@@ -885,11 +885,17 @@ MDBP can be exposed to Claude, Cursor, and other MCP-compatible clients via the 
 ### Starting via CLI
 
 ```bash
-# stdio mode (default) — for Claude Desktop, Cursor, etc.
+# stdio (default) — for Claude Desktop, Cursor, etc.
 mdbp-server --db-url "postgresql://user:pass@localhost/mydb"
 
-# SSE mode — HTTP server at localhost:8000/sse
-mdbp-server --db-url "postgresql://user:pass@localhost/mydb" --transport sse --port 8000
+# SSE — HTTP + Server-Sent Events at /sse
+mdbp-server --db-url "postgresql://..." --transport sse --port 8000
+
+# Streamable HTTP — newer MCP HTTP protocol at /mcp
+mdbp-server --db-url "postgresql://..." --transport streamable-http --port 8000
+
+# WebSocket — WebSocket at /ws
+mdbp-server --db-url "postgresql://..." --transport websocket --port 8000
 
 # With config file
 mdbp-server --db-url "sqlite:///my.db" --config config.json --transport sse
@@ -943,43 +949,36 @@ mdbp-server --db-url "sqlite:///my.db" --config config.json --transport sse
 
 ### Programmatic Usage
 
-**SSE server (one-liner):**
+All transports are available as one-liner functions:
 
 ```python
 from mdbp import MDBP
-from mdbp.transport.server import run_sse
+from mdbp.transport.server import run_sse, run_streamable_http, run_websocket, run_stdio
 
 mdbp = MDBP(db_url="postgresql://user:pass@localhost/mydb")
-run_sse(mdbp, host="0.0.0.0", port=8000)
+
+run_sse(mdbp, host="0.0.0.0", port=8000)                # SSE at /sse
+run_streamable_http(mdbp, host="0.0.0.0", port=8000)     # Streamable HTTP at /mcp
+run_websocket(mdbp, host="0.0.0.0", port=8000)           # WebSocket at /ws
+run_stdio(mdbp)                                           # stdin/stdout
 ```
 
-**ASGI app (for custom middleware or mounting):**
+**ASGI apps (for custom middleware or mounting):**
 
 ```python
-from mdbp import MDBP
-from mdbp.transport.server import sse_app
+from mdbp.transport.server import sse_app, streamable_http_app, websocket_app
 
-mdbp = MDBP(db_url="postgresql://user:pass@localhost/mydb")
-app = sse_app(mdbp)  # Starlette ASGI app
-# uvicorn.run(app, host="0.0.0.0", port=8000)
+app = sse_app(mdbp)                # Starlette ASGI app — /sse endpoint
+app = streamable_http_app(mdbp)    # Starlette ASGI app — /mcp endpoint
+app = websocket_app(mdbp)          # Starlette ASGI app — /ws endpoint
 ```
 
-**Stdio mode (for Claude Desktop):**
+**Low-level (full control):**
 
 ```python
-from mdbp import MDBP
 from mdbp.transport.server import create_server
-from mcp.server.stdio import stdio_server
-import asyncio
 
-mdbp = MDBP(db_url="postgresql://user:pass@localhost/mydb")
-server = create_server(mdbp)
-
-async def main():
-    async with stdio_server() as (read_stream, write_stream):
-        await server.run(read_stream, write_stream, server.create_initialization_options())
-
-asyncio.run(main())
+server = create_server(mdbp)  # Returns mcp.server.Server — wire any transport yourself
 ```
 
 ### Exposed MCP Tools

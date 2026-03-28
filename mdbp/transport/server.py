@@ -9,12 +9,16 @@ Tools exposed:
   - mdbp_describe_schema: Get available entities and fields
 
 Transport modes:
-  - stdio (default): For Claude Desktop, Cursor, etc.
-  - sse: HTTP server with Server-Sent Events at /sse
+  - stdio (default):      stdin/stdout for Claude Desktop, Cursor, etc.
+  - sse:                  HTTP + Server-Sent Events at /sse
+  - streamable-http:      HTTP + Streamable HTTP protocol at /mcp
+  - websocket:            WebSocket at /ws
 
 Run:
   mdbp-server --db-url sqlite:///my.db
   mdbp-server --db-url sqlite:///my.db --transport sse --port 8000
+  mdbp-server --db-url sqlite:///my.db --transport streamable-http --port 8000
+  mdbp-server --db-url sqlite:///my.db --transport websocket --port 8000
 """
 
 from __future__ import annotations
@@ -170,14 +174,15 @@ def create_server(mdcp: MDBP) -> Server:
     return server
 
 
+# ─── Transport: SSE ────────────────────────────────────────────
+
+
 def sse_app(
     mdbp: MDBP,
     sse_path: str = "/sse",
     message_path: str = "/messages/",
 ):
     """Create a Starlette ASGI app that serves MDBP over SSE.
-
-    Use this if you want to mount MDBP inside a larger app or add middleware.
 
         app = sse_app(mdbp)
         uvicorn.run(app, host="0.0.0.0", port=8000)
@@ -221,12 +226,142 @@ def run_sse(
     uvicorn.run(app, host=host, port=port, **kwargs)
 
 
-async def _run_stdio(db_url: str, config_path: str | None = None) -> None:
-    config = load_config(config_path) if config_path else {"entities": [], "policies": []}
-    mdbp = build_mdcp_from_config(db_url, config)
+# ─── Transport: Streamable HTTP ───────────────────────────────
+
+
+def streamable_http_app(
+    mdbp: MDBP,
+    path: str = "/mcp",
+    stateless: bool = True,
+):
+    """Create a Starlette ASGI app that serves MDBP over Streamable HTTP.
+
+        app = streamable_http_app(mdbp)
+        uvicorn.run(app, host="0.0.0.0", port=8000)
+    """
+    import contextlib
+
+    from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
+    from starlette.applications import Starlette
+    from starlette.routing import Mount
+
     server = create_server(mdbp)
-    async with stdio_server() as (read_stream, write_stream):
-        await server.run(read_stream, write_stream, server.create_initialization_options())
+    session_manager = StreamableHTTPSessionManager(
+        app=server, stateless=stateless,
+    )
+
+    @contextlib.asynccontextmanager
+    async def lifespan(app):
+        async with session_manager.run():
+            yield
+
+    return Starlette(
+        routes=[
+            Mount(path, app=session_manager.handle_request),
+        ],
+        lifespan=lifespan,
+    )
+
+
+def run_streamable_http(
+    mdbp: MDBP,
+    host: str = "127.0.0.1",
+    port: int = 8000,
+    **kwargs,
+) -> None:
+    """Start MDBP as an HTTP server with Streamable HTTP transport.
+
+        from mdbp import MDBP
+        from mdbp.transport.server import run_streamable_http
+
+        mdbp = MDBP(db_url="sqlite:///my.db")
+        run_streamable_http(mdbp, host="0.0.0.0", port=8000)
+    """
+    import uvicorn
+
+    app = streamable_http_app(mdbp)
+    uvicorn.run(app, host=host, port=port, **kwargs)
+
+
+# ─── Transport: WebSocket ──────────────────────────────────────
+
+
+def websocket_app(
+    mdbp: MDBP,
+    ws_path: str = "/ws",
+):
+    """Create a Starlette ASGI app that serves MDBP over WebSocket.
+
+        app = websocket_app(mdbp)
+        uvicorn.run(app, host="0.0.0.0", port=8000)
+    """
+    from mcp.server.websocket import websocket_server
+    from starlette.applications import Starlette
+    from starlette.routing import WebSocketRoute
+
+    server = create_server(mdbp)
+
+    async def handle_ws(websocket):
+        await websocket.accept(subprotocol="mcp")
+        async with websocket_server(
+            websocket.scope, websocket.receive, websocket.send,
+        ) as streams:
+            await server.run(streams[0], streams[1], server.create_initialization_options())
+
+    return Starlette(
+        routes=[
+            WebSocketRoute(ws_path, endpoint=handle_ws),
+        ],
+    )
+
+
+def run_websocket(
+    mdbp: MDBP,
+    host: str = "127.0.0.1",
+    port: int = 8000,
+    **kwargs,
+) -> None:
+    """Start MDBP as an HTTP server with WebSocket transport.
+
+        from mdbp import MDBP
+        from mdbp.transport.server import run_websocket
+
+        mdbp = MDBP(db_url="sqlite:///my.db")
+        run_websocket(mdbp, host="0.0.0.0", port=8000)
+    """
+    import uvicorn
+
+    app = websocket_app(mdbp)
+    uvicorn.run(app, host=host, port=port, **kwargs)
+
+
+# ─── Transport: Stdio ─────────────────────────────────────────
+
+
+def run_stdio(mdbp: MDBP) -> None:
+    """Start MDBP with stdio transport (for Claude Desktop, Cursor, etc.).
+
+        from mdbp import MDBP
+        from mdbp.transport.server import run_stdio
+
+        mdbp = MDBP(db_url="sqlite:///my.db")
+        run_stdio(mdbp)
+    """
+    import asyncio
+
+    server = create_server(mdbp)
+
+    async def _run():
+        async with stdio_server() as (read_stream, write_stream):
+            await server.run(read_stream, write_stream, server.create_initialization_options())
+
+    asyncio.run(_run())
+
+
+# ─── CLI ───────────────────────────────────────────────────────
+
+
+_TRANSPORTS = ["stdio", "sse", "streamable-http", "websocket"]
 
 
 def main() -> None:
@@ -234,20 +369,24 @@ def main() -> None:
     parser.add_argument("--db-url", required=True, help="SQLAlchemy database URL")
     parser.add_argument("--config", required=False, help="Path to MDBP config JSON file")
     parser.add_argument(
-        "--transport", choices=["stdio", "sse"], default="stdio",
-        help="Transport mode: stdio (default) or sse",
+        "--transport", choices=_TRANSPORTS, default="stdio",
+        help="Transport mode (default: stdio)",
     )
-    parser.add_argument("--host", default="127.0.0.1", help="Host for SSE server (default: 127.0.0.1)")
-    parser.add_argument("--port", type=int, default=8000, help="Port for SSE server (default: 8000)")
+    parser.add_argument("--host", default="127.0.0.1", help="Host for HTTP servers (default: 127.0.0.1)")
+    parser.add_argument("--port", type=int, default=8000, help="Port for HTTP servers (default: 8000)")
     args = parser.parse_args()
 
-    if args.transport == "sse":
-        config = load_config(args.config) if args.config else {"entities": [], "policies": []}
-        mdbp = build_mdcp_from_config(args.db_url, config)
+    config = load_config(args.config) if args.config else {"entities": [], "policies": []}
+    mdbp = build_mdcp_from_config(args.db_url, config)
+
+    if args.transport == "stdio":
+        run_stdio(mdbp)
+    elif args.transport == "sse":
         run_sse(mdbp, host=args.host, port=args.port)
-    else:
-        import asyncio
-        asyncio.run(_run_stdio(args.db_url, args.config))
+    elif args.transport == "streamable-http":
+        run_streamable_http(mdbp, host=args.host, port=args.port)
+    elif args.transport == "websocket":
+        run_websocket(mdbp, host=args.host, port=args.port)
 
 
 if __name__ == "__main__":
