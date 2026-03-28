@@ -97,7 +97,7 @@ def create_server(mdbp: MDBP) -> Server:
                     "properties": {
                         "intent": {
                             "type": "string",
-                            "enum": ["list", "get", "count", "aggregate", "create", "update", "delete"],
+                            "enum": ["list", "get", "count", "aggregate", "create", "batch_create", "upsert", "update", "delete", "union", "intersect", "except"],
                             "description": "The operation type",
                         },
                         "entity": {
@@ -106,7 +106,7 @@ def create_server(mdbp: MDBP) -> Server:
                         },
                         "filters": {
                             "type": "object",
-                            "description": "Key-value filters. Supports suffixes: __gt, __gte, __lt, __lte, __ne, __like, __in",
+                            "description": "Key-value filters. Supports suffixes: __gt, __gte, __lt, __lte, __ne, __like, __ilike, __not_like, __in, __not_in, __between, __null, __not_null",
                             "default": {},
                         },
                         "fields": {

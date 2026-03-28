@@ -615,6 +615,10 @@ mdbp.query({
         {
             "name": "price_int",
             "function": {"name": "cast", "args": ["price"], "cast_to": "integer"}
+        },
+        {
+            "name": "order_year",
+            "function": {"name": "extract", "args": [{"literal": "year"}, "created_at"]}
         }
     ]
 })
@@ -622,6 +626,8 @@ mdbp.query({
 
 **Supported scalar functions:**
 `coalesce`, `upper`, `lower`, `cast`, `concat`, `trim`, `length`, `abs`, `round`, `substring`, `extract`, `now`, `current_date`, `replace`
+
+Note: `extract` requires the first argument as `{"literal": "part"}` where part is `year`, `month`, `day`, `hour`, `minute`, or `second`.
 
 ---
 
@@ -1055,6 +1061,12 @@ MDBP catches all errors and returns structured JSON. It never raises exceptions 
 | `MDBP_CONN_EXECUTION_ERROR` | Query execution failed | original_error |
 | `MDBP_NOT_FOUND` | GET query returned no results | entity, id |
 
+#### Config Errors
+
+| Code | Meaning | Details |
+|------|---------|---------|
+| `MDBP_CONFIG_FILE_NOT_FOUND` | Config file does not exist | path |
+
 ### Handling Errors in Code
 
 ```python
@@ -1121,6 +1133,16 @@ class FieldSchema(BaseModel):
     description: str | None = None
     filterable: bool = True
     sortable: bool = True
+```
+
+### RelationSchema
+
+```python
+class RelationSchema(BaseModel):
+    target_entity: str                  # Related entity name
+    join_column: str                    # Column on this entity's table
+    target_column: str                  # Column on target entity's table
+    relation_type: str = "many_to_one"  # one_to_one, many_to_one, one_to_many
 ```
 
 ### Policy
