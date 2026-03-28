@@ -1,4 +1,3 @@
-# <img src="https://raw.githubusercontent.com/DorukYelken/Model-Database-Protocol/main/logo.png" alt="MDBP" width="32"> 
 # MDBP - Model Database Protocol
 
 **Intent-based data access protocol for AI systems.**
@@ -1224,3 +1223,11 @@ This example demonstrates:
 - All 4 transport modes (stdio, sse, streamable-http, websocket)
 
 See the [example README](https://github.com/DorukYelken/Model-Database-Protocol/tree/main/examples/ecommerce-mdbp-server) for full details and sample queries.
+
+---
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/DorukYelken/Model-Database-Protocol/main/logo.png" alt="MDBP Logo" width="64">
+  <br>
+  <sub>MDBP — Model Database Protocol</sub>
+</p>
