@@ -1,8 +1,4 @@
-<p align="center">
-  <img src="https://raw.githubusercontent.com/DorukYelken/Model-Database-Protocol/main/logo.png" alt="MDBP Logo" width="180">
-</p>
-
-<h1 align="center">MDBP - Model Database Protocol</h1>
+# <img src="https://raw.githubusercontent.com/DorukYelken/Model-Database-Protocol/main/logo.png" alt="MDBP" width="32"> MDBP - Model Database Protocol
 
 **Intent-based data access protocol for AI systems.**
 
