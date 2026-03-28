@@ -1,0 +1,27 @@
+# Project-specific
+tests/
+demo.py
+CLAUDE.md
+test-server.py
+docs/
+dist/
+.vscode/
+.claude/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+build/
+*.db
+
+# Environment
+.env
+.venv/
+venv/
+.pypirc
+
+# OS
+.DS_Store
+Thumbs.db
