@@ -102,6 +102,56 @@ When `MDBP(db_url=...)` is called, all tables and columns are automatically disc
 
 When an LLM hallucinates a table name, MDBP catches it and returns the list of available entities. The LLM can self-correct using this feedback.
 
+### Real-World Example (PostgreSQL)
+
+```python
+from mdbp import MDBP
+
+mdbp = MDBP(
+    db_url="postgresql+psycopg2://user:password@localhost:5432/mydb",
+    allowed_intents=["list", "get", "count", "aggregate"],  # read-only mode
+)
+
+# Auto-discovers all tables and columns
+schema = mdbp.describe_schema()
+for entity, info in schema.items():
+    print(f"{entity}: {len(info['fields'])} fields")
+
+# List with sorting and limit
+result = mdbp.query({
+    "intent": "list",
+    "entity": "stock_price",
+    "fields": ["Date", "Close", "Volume"],
+    "sort": [{"field": "Date", "order": "desc"}],
+    "limit": 5,
+})
+for row in result["data"]:
+    print(f"{row['Date']} | ${row['Close']:.2f} | Vol: {row['Volume']:,}")
+
+# Aggregation
+result = mdbp.query({
+    "intent": "aggregate",
+    "entity": "stock_price",
+    "aggregation": {"op": "avg", "field": "Close"},
+})
+print(f"Average close: ${float(result['data'][0]['result']):.2f}")
+
+# Count with filters
+result = mdbp.query({
+    "intent": "count",
+    "entity": "stock_price",
+    "filters": {"Close__gte": 100},
+})
+print(f"Days above $100: {result['data']['count']}")
+
+# Hallucination protection
+result = mdbp.query({"intent": "list", "entity": "nonexistent_table"})
+print(result["error"]["code"])           # MDBP_SCHEMA_ENTITY_NOT_FOUND
+print(result["error"]["details"])        # {"available_entities": [...]}
+
+mdbp.dispose()
+```
+
 ---
 
 ## Core Concepts
