@@ -885,8 +885,14 @@ MDBP can be exposed to Claude, Cursor, and other MCP-compatible clients via the 
 ### Starting via CLI
 
 ```bash
+# stdio mode (default) — for Claude Desktop, Cursor, etc.
 mdbp-server --db-url "postgresql://user:pass@localhost/mydb"
-mdbp-server --db-url "sqlite:///my.db" --config config.json
+
+# SSE mode — HTTP server at localhost:8000/sse
+mdbp-server --db-url "postgresql://user:pass@localhost/mydb" --transport sse --port 8000
+
+# With config file
+mdbp-server --db-url "sqlite:///my.db" --config config.json --transport sse
 ```
 
 ### Config File
@@ -936,6 +942,29 @@ mdbp-server --db-url "sqlite:///my.db" --config config.json
 ```
 
 ### Programmatic Usage
+
+**SSE server (one-liner):**
+
+```python
+from mdbp import MDBP
+from mdbp.transport.server import run_sse
+
+mdbp = MDBP(db_url="postgresql://user:pass@localhost/mydb")
+run_sse(mdbp, host="0.0.0.0", port=8000)
+```
+
+**ASGI app (for custom middleware or mounting):**
+
+```python
+from mdbp import MDBP
+from mdbp.transport.server import sse_app
+
+mdbp = MDBP(db_url="postgresql://user:pass@localhost/mydb")
+app = sse_app(mdbp)  # Starlette ASGI app
+# uvicorn.run(app, host="0.0.0.0", port=8000)
+```
+
+**Stdio mode (for Claude Desktop):**
 
 ```python
 from mdbp import MDBP

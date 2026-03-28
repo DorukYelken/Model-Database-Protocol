@@ -8,8 +8,13 @@ Tools exposed:
   - mdbp_query:          Execute an intent-based query
   - mdbp_describe_schema: Get available entities and fields
 
+Transport modes:
+  - stdio (default): For Claude Desktop, Cursor, etc.
+  - sse: HTTP server with Server-Sent Events at /sse
+
 Run:
-  python -m mdbp.transport.server --db-url sqlite:///my.db --schema schema.json
+  mdbp-server --db-url sqlite:///my.db
+  mdbp-server --db-url sqlite:///my.db --transport sse --port 8000
 """
 
 from __future__ import annotations
@@ -165,10 +170,61 @@ def create_server(mdcp: MDBP) -> Server:
     return server
 
 
-async def run(db_url: str, config_path: str | None = None) -> None:
+def sse_app(
+    mdbp: MDBP,
+    sse_path: str = "/sse",
+    message_path: str = "/messages/",
+):
+    """Create a Starlette ASGI app that serves MDBP over SSE.
+
+    Use this if you want to mount MDBP inside a larger app or add middleware.
+
+        app = sse_app(mdbp)
+        uvicorn.run(app, host="0.0.0.0", port=8000)
+    """
+    from mcp.server.sse import SseServerTransport
+    from starlette.applications import Starlette
+    from starlette.routing import Mount, Route
+
+    server = create_server(mdbp)
+    sse = SseServerTransport(message_path)
+
+    async def handle_sse(request):
+        async with sse.connect_sse(request.scope, request.receive, request._send) as streams:
+            await server.run(streams[0], streams[1], server.create_initialization_options())
+
+    return Starlette(
+        routes=[
+            Route(sse_path, endpoint=handle_sse),
+            Mount(message_path, app=sse.handle_post_message),
+        ],
+    )
+
+
+def run_sse(
+    mdbp: MDBP,
+    host: str = "127.0.0.1",
+    port: int = 8000,
+    **kwargs,
+) -> None:
+    """Start MDBP as an HTTP server with SSE transport.
+
+        from mdbp import MDBP
+        from mdbp.transport.server import run_sse
+
+        mdbp = MDBP(db_url="sqlite:///my.db")
+        run_sse(mdbp, host="0.0.0.0", port=8000)
+    """
+    import uvicorn
+
+    app = sse_app(mdbp)
+    uvicorn.run(app, host=host, port=port, **kwargs)
+
+
+async def _run_stdio(db_url: str, config_path: str | None = None) -> None:
     config = load_config(config_path) if config_path else {"entities": [], "policies": []}
-    mdcp = build_mdcp_from_config(db_url, config)
-    server = create_server(mdcp)
+    mdbp = build_mdcp_from_config(db_url, config)
+    server = create_server(mdbp)
     async with stdio_server() as (read_stream, write_stream):
         await server.run(read_stream, write_stream, server.create_initialization_options())
 
@@ -177,10 +233,21 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="MDBP MCP Server")
     parser.add_argument("--db-url", required=True, help="SQLAlchemy database URL")
     parser.add_argument("--config", required=False, help="Path to MDBP config JSON file")
+    parser.add_argument(
+        "--transport", choices=["stdio", "sse"], default="stdio",
+        help="Transport mode: stdio (default) or sse",
+    )
+    parser.add_argument("--host", default="127.0.0.1", help="Host for SSE server (default: 127.0.0.1)")
+    parser.add_argument("--port", type=int, default=8000, help="Port for SSE server (default: 8000)")
     args = parser.parse_args()
 
-    import asyncio
-    asyncio.run(run(args.db_url, args.config))
+    if args.transport == "sse":
+        config = load_config(args.config) if args.config else {"entities": [], "policies": []}
+        mdbp = build_mdcp_from_config(args.db_url, config)
+        run_sse(mdbp, host=args.host, port=args.port)
+    else:
+        import asyncio
+        asyncio.run(_run_stdio(args.db_url, args.config))
 
 
 if __name__ == "__main__":
