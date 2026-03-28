@@ -1,6 +1,6 @@
-"""MDCP — Model Database Context Protocol"""
+"""MDBP — Model Database Protocol"""
 
-from mdcp.core.errors import (
+from mdbp.core.errors import (
     DatabaseConnectionError,
     DatabaseExecutionError,
     EntityNotFoundError,
@@ -11,7 +11,7 @@ from mdcp.core.errors import (
     IntentNotAllowedError,
     IntentTypeNotAllowedError,
     IntentValidationError,
-    MDCPError,
+    MDBPError,
     MissingRequiredFieldError,
     NotFoundError,
     PolicyViolation,
@@ -19,11 +19,11 @@ from mdcp.core.errors import (
     UnionRequiresSubqueriesError,
     UnknownFilterOpError,
 )
-from mdcp.mdcp import MDCP
+from mdbp.mdbp import MDBP
 
 __all__ = [
-    "MDCP",
-    "MDCPError",
+    "MDBP",
+    "MDBPError",
     "EntityNotFoundError",
     "FieldNotFoundError",
     "EntityReferenceError",

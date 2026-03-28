@@ -1,17 +1,17 @@
 """
-MDCP Error System
+MDBP Error System
 
-Every MDCP error has:
-  - code:    Machine-readable error code (e.g. "MDCP_ENTITY_NOT_FOUND")
+Every MDBP error has:
+  - code:    Machine-readable error code (e.g. "MDBP_ENTITY_NOT_FOUND")
   - message: Human-readable description
   - details: Structured context for debugging
 
 Error code prefixes:
-  MDCP_SCHEMA_*   → Schema registry errors (entity/field resolution)
-  MDCP_POLICY_*   → Policy enforcement errors (access denied)
-  MDCP_QUERY_*    → Query planning errors (invalid intent structure)
-  MDCP_CONN_*     → Database connection/execution errors
-  MDCP_INTENT_*   → Intent validation errors
+  MDBP_SCHEMA_*   → Schema registry errors (entity/field resolution)
+  MDBP_POLICY_*   → Policy enforcement errors (access denied)
+  MDBP_QUERY_*    → Query planning errors (invalid intent structure)
+  MDBP_CONN_*     → Database connection/execution errors
+  MDBP_INTENT_*   → Intent validation errors
 """
 
 from __future__ import annotations
@@ -19,10 +19,10 @@ from __future__ import annotations
 from typing import Any
 
 
-class MDCPError(Exception):
-    """Base exception for all MDCP errors."""
+class MDBPError(Exception):
+    """Base exception for all MDBP errors."""
 
-    code: str = "MDCP_UNKNOWN_ERROR"
+    code: str = "MDBP_UNKNOWN_ERROR"
     status: str = "error"
 
     def __init__(self, message: str, details: dict[str, Any] | None = None) -> None:
@@ -42,10 +42,10 @@ class MDCPError(Exception):
 
 # ─── Schema Errors ──────────────────────────────────────────────
 
-class EntityNotFoundError(MDCPError):
+class EntityNotFoundError(MDBPError):
     """Raised when an intent references an entity that doesn't exist in the registry."""
 
-    code = "MDCP_SCHEMA_ENTITY_NOT_FOUND"
+    code = "MDBP_SCHEMA_ENTITY_NOT_FOUND"
 
     def __init__(self, entity: str, available: list[str]) -> None:
         super().__init__(
@@ -54,10 +54,10 @@ class EntityNotFoundError(MDCPError):
         )
 
 
-class FieldNotFoundError(MDCPError):
+class FieldNotFoundError(MDBPError):
     """Raised when an intent references a field that doesn't exist on an entity."""
 
-    code = "MDCP_SCHEMA_FIELD_NOT_FOUND"
+    code = "MDBP_SCHEMA_FIELD_NOT_FOUND"
 
     def __init__(self, entity: str, field: str, available: list[str]) -> None:
         super().__init__(
@@ -66,10 +66,10 @@ class FieldNotFoundError(MDCPError):
         )
 
 
-class EntityReferenceError(MDCPError):
+class EntityReferenceError(MDBPError):
     """Raised when a dot-notation field references an unknown joined entity."""
 
-    code = "MDCP_SCHEMA_ENTITY_REF_NOT_FOUND"
+    code = "MDBP_SCHEMA_ENTITY_REF_NOT_FOUND"
 
     def __init__(self, entity_ref: str, field: str) -> None:
         super().__init__(
@@ -80,16 +80,16 @@ class EntityReferenceError(MDCPError):
 
 # ─── Policy Errors ──────────────────────────────────────────────
 
-class PolicyViolation(MDCPError):
+class PolicyViolation(MDBPError):
     """Base class for all policy violations."""
 
-    code = "MDCP_POLICY_VIOLATION"
+    code = "MDBP_POLICY_VIOLATION"
 
 
 class IntentNotAllowedError(PolicyViolation):
     """Raised when the intent type is not in the policy's allowed list."""
 
-    code = "MDCP_POLICY_INTENT_NOT_ALLOWED"
+    code = "MDBP_POLICY_INTENT_NOT_ALLOWED"
 
     def __init__(self, intent_type: str, entity: str, role: str | None) -> None:
         super().__init__(
@@ -101,7 +101,7 @@ class IntentNotAllowedError(PolicyViolation):
 class FieldAccessDeniedError(PolicyViolation):
     """Raised when accessing a denied field."""
 
-    code = "MDCP_POLICY_FIELD_DENIED"
+    code = "MDBP_POLICY_FIELD_DENIED"
 
     def __init__(self, entity: str, denied_fields: list[str]) -> None:
         super().__init__(
@@ -113,7 +113,7 @@ class FieldAccessDeniedError(PolicyViolation):
 class FieldNotAllowedError(PolicyViolation):
     """Raised when accessing a field not in the allowed list."""
 
-    code = "MDCP_POLICY_FIELD_NOT_ALLOWED"
+    code = "MDBP_POLICY_FIELD_NOT_ALLOWED"
 
     def __init__(self, entity: str, disallowed_fields: list[str], allowed_fields: list[str]) -> None:
         super().__init__(
@@ -128,10 +128,10 @@ class FieldNotAllowedError(PolicyViolation):
 
 # ─── Intent Errors ──────────────────────────────────────────────
 
-class IntentTypeNotAllowedError(MDCPError):
+class IntentTypeNotAllowedError(MDBPError):
     """Raised when the intent type is globally blocked via allowed_intents."""
 
-    code = "MDCP_INTENT_TYPE_NOT_ALLOWED"
+    code = "MDBP_INTENT_TYPE_NOT_ALLOWED"
 
     def __init__(self, intent_type: str, allowed: list[str]) -> None:
         super().__init__(
@@ -140,24 +140,24 @@ class IntentTypeNotAllowedError(MDCPError):
         )
 
 
-class IntentValidationError(MDCPError):
+class IntentValidationError(MDBPError):
     """Raised when the intent structure is invalid."""
 
-    code = "MDCP_INTENT_VALIDATION_ERROR"
+    code = "MDBP_INTENT_VALIDATION_ERROR"
 
 
 # ─── Query Errors ───────────────────────────────────────────────
 
-class QueryPlanError(MDCPError):
+class QueryPlanError(MDBPError):
     """Raised when the query planner cannot build a valid query."""
 
-    code = "MDCP_QUERY_PLAN_ERROR"
+    code = "MDBP_QUERY_PLAN_ERROR"
 
 
 class MissingRequiredFieldError(QueryPlanError):
     """Raised when a required field is missing for an intent type."""
 
-    code = "MDCP_QUERY_MISSING_FIELD"
+    code = "MDBP_QUERY_MISSING_FIELD"
 
     def __init__(self, intent_type: str, field: str) -> None:
         super().__init__(
@@ -169,7 +169,7 @@ class MissingRequiredFieldError(QueryPlanError):
 class UnknownFilterOpError(QueryPlanError):
     """Raised when an unknown filter operator is used."""
 
-    code = "MDCP_QUERY_UNKNOWN_FILTER_OP"
+    code = "MDBP_QUERY_UNKNOWN_FILTER_OP"
 
     def __init__(self, op: str) -> None:
         super().__init__(
@@ -189,7 +189,7 @@ class UnknownFilterOpError(QueryPlanError):
 class UnionRequiresSubqueriesError(QueryPlanError):
     """Raised when a union intent doesn't have enough sub-queries."""
 
-    code = "MDCP_QUERY_UNION_REQUIRES_SUBQUERIES"
+    code = "MDBP_QUERY_UNION_REQUIRES_SUBQUERIES"
 
     def __init__(self) -> None:
         super().__init__(
@@ -200,16 +200,16 @@ class UnionRequiresSubqueriesError(QueryPlanError):
 
 # ─── Connection Errors ──────────────────────────────────────────
 
-class DatabaseConnectionError(MDCPError):
+class DatabaseConnectionError(MDBPError):
     """Raised when the database connection fails."""
 
-    code = "MDCP_CONN_FAILED"
+    code = "MDBP_CONN_FAILED"
 
 
-class DatabaseExecutionError(MDCPError):
+class DatabaseExecutionError(MDBPError):
     """Raised when a query execution fails."""
 
-    code = "MDCP_CONN_EXECUTION_ERROR"
+    code = "MDBP_CONN_EXECUTION_ERROR"
 
     def __init__(self, message: str, original_error: str | None = None) -> None:
         super().__init__(
@@ -218,10 +218,10 @@ class DatabaseExecutionError(MDCPError):
         )
 
 
-class NotFoundError(MDCPError):
+class NotFoundError(MDBPError):
     """Raised when a GET query returns no results."""
 
-    code = "MDCP_NOT_FOUND"
+    code = "MDBP_NOT_FOUND"
 
     def __init__(self, entity: str, id_value: Any) -> None:
         super().__init__(
@@ -232,10 +232,10 @@ class NotFoundError(MDCPError):
 
 # ─── Config Errors ──────────────────────────────────────────────
 
-class ConfigFileNotFoundError(MDCPError):
-    """Raised when the MDCP config file is not found."""
+class ConfigFileNotFoundError(MDBPError):
+    """Raised when the MDBP config file is not found."""
 
-    code = "MDCP_CONFIG_FILE_NOT_FOUND"
+    code = "MDBP_CONFIG_FILE_NOT_FOUND"
 
     def __init__(self, path: str) -> None:
         super().__init__(

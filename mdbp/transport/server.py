@@ -1,15 +1,15 @@
 """
-MDCP MCP Server
+MDBP MCP Server
 
-Exposes MDCP as an MCP server so that Claude, Cursor, and other
+Exposes MDBP as an MCP server so that Claude, Cursor, and other
 MCP-compatible clients can use intent-based database access.
 
 Tools exposed:
-  - mdcp_query:          Execute an intent-based query
-  - mdcp_describe_schema: Get available entities and fields
+  - mdbp_query:          Execute an intent-based query
+  - mdbp_describe_schema: Get available entities and fields
 
 Run:
-  python -m mdcp.transport.server --db-url sqlite:///my.db --schema schema.json
+  python -m mdbp.transport.server --db-url sqlite:///my.db --schema schema.json
 """
 
 from __future__ import annotations
@@ -23,25 +23,25 @@ from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import TextContent, Tool
 
-from mdcp.core.intent import IntentType
-from mdcp.core.policy import Policy
-from mdcp.core.schema_registry import EntitySchema, FieldSchema
-from mdcp.mdcp import MDCP
+from mdbp.core.intent import IntentType
+from mdbp.core.policy import Policy
+from mdbp.core.schema_registry import EntitySchema, FieldSchema
+from mdbp.mdbp import MDBP
 
 
 def load_config(config_path: str) -> dict:
-    """Load MDCP schema + policy config from a JSON file."""
+    """Load MDBP schema + policy config from a JSON file."""
     path = Path(config_path)
     if not path.exists():
-        from mdcp.core.errors import ConfigFileNotFoundError
+        from mdbp.core.errors import ConfigFileNotFoundError
         raise ConfigFileNotFoundError(path=config_path)
     with open(path) as f:
         return json.load(f)
 
 
-def build_mdcp_from_config(db_url: str, config: dict) -> MDCP:
-    """Create an MDCP instance from a config dict."""
-    mdcp = MDCP(db_url=db_url)
+def build_mdcp_from_config(db_url: str, config: dict) -> MDBP:
+    """Create an MDBP instance from a config dict."""
+    mdcp = MDBP(db_url=db_url)
 
     # Register entities
     for entity_conf in config.get("entities", []):
@@ -56,7 +56,7 @@ def build_mdcp_from_config(db_url: str, config: dict) -> MDCP:
             fields=fields,
             description=entity_conf.get("description"),
         )
-        mdcp.register_entity(schema)
+        mdbp.register_entity(schema)
 
     # Register policies
     for policy_conf in config.get("policies", []):
@@ -64,22 +64,22 @@ def build_mdcp_from_config(db_url: str, config: dict) -> MDCP:
             policy_conf["allowed_intents"] = [
                 IntentType(i) for i in policy_conf["allowed_intents"]
             ]
-        mdcp.add_policy(Policy(**policy_conf))
+        mdbp.add_policy(Policy(**policy_conf))
 
     return mdcp
 
 
-def create_server(mdcp: MDCP) -> Server:
-    """Create an MCP server with MDCP tools."""
-    server = Server("mdcp")
+def create_server(mdcp: MDBP) -> Server:
+    """Create an MCP server with MDBP tools."""
+    server = Server("mdbp")
 
     @server.list_tools()
     async def list_tools() -> list[Tool]:
         return [
             Tool(
-                name="mdcp_query",
+                name="mdbp_query",
                 description=(
-                    "Execute an intent-based database query via MDCP. "
+                    "Execute an intent-based database query via MDBP. "
                     "Instead of writing SQL, provide a structured intent with "
                     "entity name, operation type, and filters."
                 ),
@@ -138,7 +138,7 @@ def create_server(mdcp: MDCP) -> Server:
                 },
             ),
             Tool(
-                name="mdcp_describe_schema",
+                name="mdbp_describe_schema",
                 description=(
                     "Get the available entities, their fields, types, and descriptions. "
                     "Use this to understand what data you can query."
@@ -152,12 +152,12 @@ def create_server(mdcp: MDCP) -> Server:
 
     @server.call_tool()
     async def call_tool(name: str, arguments: dict) -> list[TextContent]:
-        if name == "mdcp_query":
-            result = mdcp.query(arguments)
+        if name == "mdbp_query":
+            result = mdbp.query(arguments)
             return [TextContent(type="text", text=json.dumps(result, default=str, indent=2))]
 
-        elif name == "mdcp_describe_schema":
-            schema = mdcp.describe_schema()
+        elif name == "mdbp_describe_schema":
+            schema = mdbp.describe_schema()
             return [TextContent(type="text", text=json.dumps(schema, indent=2))]
 
         raise ValueError(f"Unknown tool: {name}")
@@ -174,9 +174,9 @@ async def run(db_url: str, config_path: str | None = None) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="MDCP MCP Server")
+    parser = argparse.ArgumentParser(description="MDBP MCP Server")
     parser.add_argument("--db-url", required=True, help="SQLAlchemy database URL")
-    parser.add_argument("--config", required=False, help="Path to MDCP config JSON file")
+    parser.add_argument("--config", required=False, help="Path to MDBP config JSON file")
     args = parser.parse_args()
 
     import asyncio

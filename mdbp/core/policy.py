@@ -1,5 +1,5 @@
 """
-MDCP Policy Engine
+MDBP Policy Engine
 
 Controls what data can be accessed, by whom, and how much.
 Prevents PII leaks, over-fetching, and unauthorized access.
@@ -22,13 +22,13 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
-from mdcp.core.errors import (
+from mdbp.core.errors import (
     FieldAccessDeniedError,
     FieldNotAllowedError,
     IntentNotAllowedError,
     PolicyViolation,
 )
-from mdcp.core.intent import Intent, IntentType
+from mdbp.core.intent import Intent, IntentType
 
 
 class Policy(BaseModel):

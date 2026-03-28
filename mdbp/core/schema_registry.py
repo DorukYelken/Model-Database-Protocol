@@ -1,5 +1,5 @@
 """
-MDCP Schema Registry
+MDBP Schema Registry
 
 Maps logical entity names to physical database tables and columns.
 This is the layer that prevents hallucinated column/table names from
@@ -26,7 +26,7 @@ from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
 
-from mdcp.core.errors import EntityNotFoundError, FieldNotFoundError
+from mdbp.core.errors import EntityNotFoundError, FieldNotFoundError
 
 if TYPE_CHECKING:
     from sqlalchemy import MetaData
@@ -105,7 +105,7 @@ class SchemaRegistry:
         Automatically discover all tables from the database metadata
         and register them as entities. No manual schema definition needed.
 
-        SQLAlchemy type → MDCP dtype mapping is automatic.
+        SQLAlchemy type → MDBP dtype mapping is automatic.
         Table name → entity name (e.g. 'products' → 'product', 'users' → 'user').
         """
         from sqlalchemy import types as sa_types

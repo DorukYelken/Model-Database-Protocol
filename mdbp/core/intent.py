@@ -1,8 +1,8 @@
 """
-MDCP Intent Model
+MDBP Intent Model
 
 LLM produces intents, not SQL. This module defines the structured
-intent format that MDCP understands.
+intent format that MDBP understands.
 
 Supports ALL SQL operations:
   - list, get, count, aggregate, create, update, delete, union
@@ -221,7 +221,7 @@ class CTEDefinition(BaseModel):
 
 class Intent(BaseModel):
     """
-    The core MDCP intent object.
+    The core MDBP intent object.
 
     Simple:
         {"intent": "list", "entity": "order", "filters": {"status": "pending"}}

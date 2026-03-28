@@ -1,5 +1,5 @@
 """
-MDCP SQL Connector
+MDBP SQL Connector
 
 Executes planned queries against a database via SQLAlchemy.
 Supports any database that SQLAlchemy supports:

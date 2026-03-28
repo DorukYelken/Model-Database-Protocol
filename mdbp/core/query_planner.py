@@ -1,5 +1,5 @@
 """
-MDCP Query Planner
+MDBP Query Planner
 
 Converts a validated Intent into a SQLAlchemy query.
 Never produces raw SQL strings — always uses parameterized queries.
@@ -39,14 +39,14 @@ from sqlalchemy import (
 )
 from sqlalchemy.types import Integer, Numeric, Text, Boolean, DateTime
 
-from mdcp.core.errors import (
+from mdbp.core.errors import (
     EntityReferenceError,
     MissingRequiredFieldError,
     QueryPlanError,
     UnionRequiresSubqueriesError,
     UnknownFilterOpError,
 )
-from mdcp.core.intent import (
+from mdbp.core.intent import (
     AggregateOp,
     ComputedField,
     FilterCondition,
@@ -54,7 +54,7 @@ from mdcp.core.intent import (
     Intent,
     IntentType,
 )
-from mdcp.core.schema_registry import SchemaRegistry
+from mdbp.core.schema_registry import SchemaRegistry
 
 
 # ─── Operator Mappings ──────────────────────────────────────────
@@ -130,7 +130,7 @@ SCALAR_FUNCS = {
 
 
 class QueryPlanner:
-    """Builds SQLAlchemy statements from MDCP intents."""
+    """Builds SQLAlchemy statements from MDBP intents."""
 
     def __init__(self, registry: SchemaRegistry, metadata: MetaData, dialect: str = "default") -> None:
         self.registry = registry

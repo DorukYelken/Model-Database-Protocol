@@ -1,5 +1,5 @@
 """
-MDCP Response Formatter
+MDBP Response Formatter
 
 Transforms raw database results into LLM-friendly structured responses.
 The goal is to give the LLM exactly the context it needs — no more, no less.
@@ -8,7 +8,7 @@ Error responses include structured error objects:
   {
       "success": false,
       "error": {
-          "code": "MDCP_SCHEMA_FIELD_NOT_FOUND",
+          "code": "MDBP_SCHEMA_FIELD_NOT_FOUND",
           "message": "Field 'fake' not found on entity 'product'.",
           "details": {"entity": "product", "field": "fake", "available_fields": [...]}
       }
@@ -19,13 +19,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from mdcp.connectors.sql import QueryResult
-from mdcp.core.errors import MDCPError, NotFoundError
-from mdcp.core.intent import Intent, IntentType
+from mdbp.connectors.sql import QueryResult
+from mdbp.core.errors import MDBPError, NotFoundError
+from mdbp.core.intent import Intent, IntentType
 
 
-class MDCPResponse:
-    """Structured response from MDCP."""
+class MDBPResponse:
+    """Structured response from MDBP."""
 
     def __init__(
         self,
@@ -34,7 +34,7 @@ class MDCPResponse:
         entity: str,
         data: Any = None,
         summary: str = "",
-        error: MDCPError | None = None,
+        error: MDBPError | None = None,
     ) -> None:
         self.success = success
         self.intent_type = intent_type
@@ -58,9 +58,9 @@ class MDCPResponse:
 
 
 class ResponseFormatter:
-    """Formats QueryResult into MDCPResponse."""
+    """Formats QueryResult into MDBPResponse."""
 
-    def format(self, intent: Intent, result: QueryResult) -> MDCPResponse:
+    def format(self, intent: Intent, result: QueryResult) -> MDBPResponse:
         if intent.intent == IntentType.LIST:
             return self._format_list(intent, result)
         elif intent.intent == IntentType.GET:
@@ -71,15 +71,15 @@ class ResponseFormatter:
             return self._format_aggregate(intent, result)
         elif intent.intent in (IntentType.CREATE, IntentType.BATCH_CREATE, IntentType.UPSERT, IntentType.UPDATE, IntentType.DELETE):
             return self._format_mutation(intent, result)
-        return MDCPResponse(
+        return MDBPResponse(
             success=True,
             intent_type=intent.intent.value,
             entity=intent.entity,
             data=result.rows,
         )
 
-    def _format_list(self, intent: Intent, result: QueryResult) -> MDCPResponse:
-        return MDCPResponse(
+    def _format_list(self, intent: Intent, result: QueryResult) -> MDBPResponse:
+        return MDBPResponse(
             success=True,
             intent_type="list",
             entity=intent.entity,
@@ -87,25 +87,25 @@ class ResponseFormatter:
             summary=f"{result.row_count} {intent.entity}(s) found",
         )
 
-    def _format_get(self, intent: Intent, result: QueryResult) -> MDCPResponse:
+    def _format_get(self, intent: Intent, result: QueryResult) -> MDBPResponse:
         if result.rows:
-            return MDCPResponse(
+            return MDBPResponse(
                 success=True,
                 intent_type="get",
                 entity=intent.entity,
                 data=result.rows[0],
                 summary=f"{intent.entity} found",
             )
-        return MDCPResponse(
+        return MDBPResponse(
             success=False,
             intent_type="get",
             entity=intent.entity,
             error=NotFoundError(entity=intent.entity, id_value=intent.id),
         )
 
-    def _format_count(self, intent: Intent, result: QueryResult) -> MDCPResponse:
+    def _format_count(self, intent: Intent, result: QueryResult) -> MDBPResponse:
         count = result.rows[0].get("count", 0) if result.rows else 0
-        return MDCPResponse(
+        return MDBPResponse(
             success=True,
             intent_type="count",
             entity=intent.entity,
@@ -113,8 +113,8 @@ class ResponseFormatter:
             summary=f"{count} {intent.entity}(s) match the criteria",
         )
 
-    def _format_aggregate(self, intent: Intent, result: QueryResult) -> MDCPResponse:
-        return MDCPResponse(
+    def _format_aggregate(self, intent: Intent, result: QueryResult) -> MDBPResponse:
+        return MDBPResponse(
             success=True,
             intent_type="aggregate",
             entity=intent.entity,
@@ -122,12 +122,12 @@ class ResponseFormatter:
             summary=f"Aggregation result for {intent.entity}",
         )
 
-    def _format_mutation(self, intent: Intent, result: QueryResult) -> MDCPResponse:
+    def _format_mutation(self, intent: Intent, result: QueryResult) -> MDBPResponse:
         action = intent.intent.value
         data: Any = {"affected_rows": result.row_count}
         if intent.returning and result.rows:
             data["returning"] = result.rows
-        return MDCPResponse(
+        return MDBPResponse(
             success=True,
             intent_type=action,
             entity=intent.entity,

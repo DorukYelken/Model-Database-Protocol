@@ -1,16 +1,16 @@
 """
-MDCP — Model Database Context Protocol
+MDBP — Model Database Protocol
 
 Main entry point. Wires together the full pipeline:
   Intent → Schema Validation → Policy Check → Query Plan → Execute → Format
 
 Usage as a library:
-    from mdcp import MDCP
+    from mdbp import MDBP
 
-    mdcp = MDCP(db_url="sqlite:///my.db")
+    mdcp = MDBP(db_url="sqlite:///my.db")
     # That's it. All tables, columns, and types are auto-discovered.
 
-    result = mdcp.query({
+    result = mdbp.query({
         "intent": "list",
         "entity": "product",
         "filters": {"price__gte": 10},
@@ -24,23 +24,23 @@ from typing import Any
 
 from pydantic import ValidationError
 
-from mdcp.connectors.sql import SQLConnector
-from mdcp.core.errors import (
+from mdbp.connectors.sql import SQLConnector
+from mdbp.core.errors import (
     DatabaseExecutionError,
     IntentTypeNotAllowedError,
     IntentValidationError,
-    MDCPError,
+    MDBPError,
 )
-from mdcp.core.intent import Intent, IntentType
-from mdcp.core.policy import Policy, PolicyEngine
-from mdcp.core.query_planner import QueryPlanner
-from mdcp.core.response import MDCPResponse, ResponseFormatter
-from mdcp.core.schema_registry import EntitySchema, SchemaRegistry
+from mdbp.core.intent import Intent, IntentType
+from mdbp.core.policy import Policy, PolicyEngine
+from mdbp.core.query_planner import QueryPlanner
+from mdbp.core.response import MDBPResponse, ResponseFormatter
+from mdbp.core.schema_registry import EntitySchema, SchemaRegistry
 
 
-class MDCP:
+class MDBP:
     """
-    Main MDCP class.
+    Main MDBP class.
 
     Provides the full intent-based data access pipeline:
     parse → validate → enforce policy → plan query → execute → format response
@@ -86,7 +86,7 @@ class MDCP:
 
     def query(self, raw_intent: dict[str, Any] | Intent) -> dict:
         """
-        Execute the full MDCP pipeline.
+        Execute the full MDBP pipeline.
 
         Accepts either a dict (from LLM JSON output) or an Intent object.
         Returns a dict suitable for sending back to the LLM.
@@ -158,21 +158,21 @@ class MDCP:
                 message=f"Invalid intent structure: {e.error_count()} validation error(s).",
                 details={"errors": e.errors()},
             )
-            return MDCPResponse(
+            return MDBPResponse(
                 success=False, intent_type=intent_type, entity=entity, error=error,
             ).to_dict()
 
-        except MDCPError as e:
-            return MDCPResponse(
+        except MDBPError as e:
+            return MDBPResponse(
                 success=False, intent_type=intent_type, entity=entity, error=e,
             ).to_dict()
 
         except Exception as e:
-            error = MDCPError(
+            error = MDBPError(
                 message=f"Unexpected error: {e}",
                 details={"type": type(e).__name__},
             )
-            return MDCPResponse(
+            return MDBPResponse(
                 success=False, intent_type=intent_type, entity=entity, error=error,
             ).to_dict()
 

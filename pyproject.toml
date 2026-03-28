@@ -3,14 +3,14 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "mdcp"
+name = "mdbp"
 version = "0.1.0"
-description = "Model Database Context Protocol — intent-based, secure data access for AI systems"
+description = "Model Database Protocol — intent-based, secure data access for AI systems"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
 authors = [
-    {name = "Doruk", email = "your-email@example.com"},
+    {name = "Doruk", email = "dorukyelken@gmail.com"},
 ]
 keywords = ["ai", "llm", "database", "mcp", "intent", "sqlalchemy", "protocol"]
 classifiers = [
@@ -22,6 +22,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Database",
     "Topic :: Software Development :: Libraries",
 ]
@@ -32,9 +33,9 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/doruk/mdcp"
-Repository = "https://github.com/doruk/mdcp"
-Documentation = "https://github.com/doruk/mdcp/tree/main/docs"
+Homepage = "https://github.com/DorukYelken/MDBP"
+Repository = "https://github.com/DorukYelken/MDBP"
+Documentation = "https://github.com/DorukYelken/MDBP/tree/main/docs"
 
 [project.optional-dependencies]
 dev = [
@@ -43,4 +44,4 @@ dev = [
 ]
 
 [project.scripts]
-mdcp-server = "mdcp.transport.server:main"
+mdbp-server = "mdbp.transport.server:main"
