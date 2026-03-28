@@ -1,4 +1,4 @@
-# MDBP - Model Database Context Protocol
+# MDBP - Model Database Protocol
 
 **Intent-based data access protocol for AI systems.**
 
