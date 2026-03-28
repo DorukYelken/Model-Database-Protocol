@@ -48,9 +48,9 @@ def load_config(config_path: str) -> dict:
         return json.load(f)
 
 
-def build_mdcp_from_config(db_url: str, config: dict) -> MDBP:
+def build_mdbp_from_config(db_url: str, config: dict) -> MDBP:
     """Create an MDBP instance from a config dict."""
-    mdcp = MDBP(db_url=db_url)
+    mdbp = MDBP(db_url=db_url)
 
     # Register entities
     for entity_conf in config.get("entities", []):
@@ -75,10 +75,10 @@ def build_mdcp_from_config(db_url: str, config: dict) -> MDBP:
             ]
         mdbp.add_policy(Policy(**policy_conf))
 
-    return mdcp
+    return mdbp
 
 
-def create_server(mdcp: MDBP) -> Server:
+def create_server(mdbp: MDBP) -> Server:
     """Create an MCP server with MDBP tools."""
     server = Server("mdbp")
 
@@ -377,7 +377,7 @@ def main() -> None:
     args = parser.parse_args()
 
     config = load_config(args.config) if args.config else {"entities": [], "policies": []}
-    mdbp = build_mdcp_from_config(args.db_url, config)
+    mdbp = build_mdbp_from_config(args.db_url, config)
 
     if args.transport == "stdio":
         run_stdio(mdbp)
