@@ -1204,24 +1204,22 @@ All queries are parameterized via SQLAlchemy. Raw SQL strings are never construc
 
 ---
 
-## Testing
+## Try It Out
+
+The [examples/ecommerce-mdbp-server](https://github.com/DorukYelken/Model-Database-Protocol/tree/main/examples/ecommerce-mdbp-server) project is a complete working example you can run locally:
 
 ```bash
-# Run all tests
-pytest tests/test_e2e.py -v
-
-# or
-python tests/test_e2e.py
+cd examples/ecommerce-mdbp-server
+pip install mdbp
+python setup_db.py    # Create e-commerce database with sample data
+python server.py      # Start MDBP server on :8000
 ```
 
-Test coverage includes:
-- All intent types (list, get, count, aggregate, create, update, delete, upsert, batch_create)
-- All filter operators
-- Complex conditions (AND/OR/NOT)
-- JOIN operations (inner, left, right, full, self-join)
-- HAVING, DISTINCT, UNION/INTERSECT/EXCEPT
-- Policy enforcement
-- Hallucination protection
-- Subqueries and CTEs
-- Window functions and scalar functions
-- All error codes
+This example demonstrates:
+- Auto-discovery (no manual schema registration)
+- Role-based access control (customer, support, admin)
+- Tenant isolation via `row_filter`
+- PII protection via `denied_fields`
+- All 4 transport modes (stdio, sse, streamable-http, websocket)
+
+See the [example README](https://github.com/DorukYelken/Model-Database-Protocol/tree/main/examples/ecommerce-mdbp-server) for full details and sample queries.
