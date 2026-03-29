@@ -189,14 +189,19 @@ def sse_app(
     """
     from mcp.server.sse import SseServerTransport
     from starlette.applications import Starlette
+    from starlette.responses import Response
     from starlette.routing import Mount, Route
 
     server = create_server(mdbp)
     sse = SseServerTransport(message_path)
 
     async def handle_sse(request):
-        async with sse.connect_sse(request.scope, request.receive, request._send) as streams:
-            await server.run(streams[0], streams[1], server.create_initialization_options())
+        try:
+            async with sse.connect_sse(request.scope, request.receive, request._send) as streams:
+                await server.run(streams[0], streams[1], server.create_initialization_options())
+        except Exception:
+            pass
+        return Response()
 
     return Starlette(
         routes=[
