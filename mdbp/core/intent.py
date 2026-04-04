@@ -297,3 +297,4 @@ class Intent(BaseModel):
 
     # ── Metadata ──
     role: str | None = None
+    dry_run: bool = Field(default=False, description="Return planned SQL without executing")

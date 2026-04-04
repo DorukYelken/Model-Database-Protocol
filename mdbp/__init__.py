@@ -1,5 +1,6 @@
 """MDBP — Model Database Protocol"""
 
+from mdbp.core.masking import MaskingRule
 from mdbp.core.errors import (
     DatabaseConnectionError,
     DatabaseExecutionError,
@@ -23,6 +24,7 @@ from mdbp.mdbp import MDBP
 
 __all__ = [
     "MDBP",
+    "MaskingRule",
     "MDBPError",
     "EntityNotFoundError",
     "FieldNotFoundError",

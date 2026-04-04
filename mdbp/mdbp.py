@@ -24,7 +24,7 @@ from typing import Any
 
 from pydantic import ValidationError
 
-from mdbp.connectors.sql import SQLConnector
+from mdbp.connectors.sql import QueryResult, SQLConnector
 from mdbp.core.errors import (
     DatabaseExecutionError,
     IntentTypeNotAllowedError,
@@ -32,6 +32,7 @@ from mdbp.core.errors import (
     MDBPError,
 )
 from mdbp.core.intent import Intent, IntentType
+from mdbp.core.masking import apply_masking
 from mdbp.core.policy import Policy, PolicyEngine
 from mdbp.core.query_planner import QueryPlanner
 from mdbp.core.response import MDBPResponse, ResponseFormatter
@@ -140,6 +141,21 @@ class MDBP:
             # 6. Plan query
             statement = self.planner.plan(intent)
 
+            # 6.5 Dry-run: return compiled SQL without executing
+            if intent.dry_run:
+                compiled = statement.compile(
+                    dialect=self.connector.engine.dialect,
+                    compile_kwargs={"literal_binds": False},
+                )
+                return {
+                    "success": True,
+                    "intent": intent_type,
+                    "entity": entity,
+                    "dry_run": True,
+                    "sql": str(compiled),
+                    "params": {k: v for k, v in (compiled.params or {}).items()},
+                }
+
             # 7. Execute
             try:
                 result = self.connector.execute(statement)
@@ -148,6 +164,16 @@ class MDBP:
                     message="Query execution failed.",
                     original_error=str(e),
                 ) from e
+
+            # 7.5 Apply data masking
+            policy = self.policy_engine.find_policy(intent.entity, intent.role)
+            if policy and policy.masked_fields and result.rows:
+                result = QueryResult(
+                    columns=result.columns,
+                    rows=apply_masking(result.rows, policy.masked_fields),
+                    row_count=result.row_count,
+                    is_mutation=result.is_mutation,
+                )
 
             # 8. Format response
             response = self.formatter.format(intent, result)

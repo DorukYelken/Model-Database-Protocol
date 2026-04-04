@@ -20,6 +20,8 @@ Usage:
 
 from __future__ import annotations
 
+from typing import Any, Callable
+
 from pydantic import BaseModel, Field
 
 from mdbp.core.errors import (
@@ -29,6 +31,7 @@ from mdbp.core.errors import (
     PolicyViolation,
 )
 from mdbp.core.intent import Intent, IntentType
+from mdbp.core.masking import MaskingRule
 
 
 class Policy(BaseModel):
@@ -51,6 +54,13 @@ class Policy(BaseModel):
         default=None,
         description="Automatic filter injected into every query (e.g. tenant isolation)",
     )
+
+    masked_fields: dict[str, str | MaskingRule | Callable[..., Any]] = Field(
+        default_factory=dict,
+        description="Fields to mask in results. Key: field name, Value: strategy name, MaskingRule, or callable",
+    )
+
+    model_config = {"arbitrary_types_allowed": True}
 
 
 class PolicyEngine:

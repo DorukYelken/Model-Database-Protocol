@@ -33,6 +33,7 @@ from mcp.server.stdio import stdio_server
 from mcp.types import TextContent, Tool
 
 from mdbp.core.intent import IntentType
+from mdbp.core.masking import MaskingRule
 from mdbp.core.policy import Policy
 from mdbp.core.schema_registry import EntitySchema, FieldSchema
 from mdbp.mdbp import MDBP
@@ -73,6 +74,11 @@ def build_mdbp_from_config(db_url: str, config: dict) -> MDBP:
             policy_conf["allowed_intents"] = [
                 IntentType(i) for i in policy_conf["allowed_intents"]
             ]
+        if "masked_fields" in policy_conf:
+            policy_conf["masked_fields"] = {
+                field: MaskingRule(**rule) if isinstance(rule, dict) else rule
+                for field, rule in policy_conf["masked_fields"].items()
+            }
         mdbp.add_policy(Policy(**policy_conf))
 
     return mdbp
