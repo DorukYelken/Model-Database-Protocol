@@ -25,6 +25,8 @@ LLM Intent (JSON) -> Schema Validation -> Policy Check -> SQLAlchemy Query -> Re
 - [Set Operations](#set-operations)
 - [Schema Registry](#schema-registry)
 - [Policy Engine](#policy-engine)
+- [Data Masking](#data-masking)
+- [Dry-Run Mode](#dry-run-mode)
 - [MCP Server](#mcp-server)
 - [Error Handling](#error-handling)
 - [API Reference](#api-reference)
@@ -180,8 +182,10 @@ Every `mdbp.query()` call passes through these stages:
 3. Schema      -> Verify entity and fields exist in schema registry
 4. Policy      -> Role-based access control, field restrictions
 5. Plan        -> Convert Intent to SQLAlchemy statement
-6. Execute     -> Run parameterized query
-7. Format      -> Convert result to LLM-friendly JSON
+6. [Dry-run?]  -> Return compiled SQL without executing (if enabled)
+7. Execute     -> Run parameterized query
+8. Mask        -> Apply data masking to result fields (if configured)
+9. Format      -> Convert result to LLM-friendly JSON
 ```
 
 ---
@@ -845,6 +849,7 @@ mdbp.add_policy(Policy(
 | `max_rows` | int | 1000 | Maximum rows returned |
 | `allowed_intents` | list | [list,get,count,aggregate] | Allowed operations |
 | `row_filter` | dict | None | Automatically injected filter |
+| `masked_fields` | dict | {} | Fields to mask in results (see [Data Masking](#data-masking)) |
 
 ### Tenant Isolation
 
@@ -881,6 +886,143 @@ result = mdbp.query({
 })
 # Error: MDBP_POLICY_FIELD_DENIED
 ```
+
+---
+
+## Data Masking
+
+Data masking lets you return masked values for sensitive fields instead of blocking the query entirely. Unlike `denied_fields` (which rejects the query), `masked_fields` allows the query but masks the values in the response.
+
+### Basic Usage
+
+```python
+from mdbp.core.policy import Policy
+
+mdbp.add_policy(Policy(
+    entity="customer",
+    role="support",
+    masked_fields={
+        "email": "email",       # d***@example.com
+        "phone": "last_n",      # ******4567
+    },
+    # name, city, etc. are returned unmasked
+))
+```
+
+Only the fields listed in `masked_fields` are masked. All other fields are returned as-is.
+
+### Built-in Strategies
+
+| Strategy | Description | Example |
+|----------|-------------|---------|
+| `"partial"` | Show first and last character | `"doruk"` → `"d***k"` |
+| `"redact"` | Replace entirely | `"doruk"` → `"***"` |
+| `"email"` | Mask local part, keep domain | `"d@x.com"` → `"d***@x.com"` |
+| `"last_n"` | Show only last N characters (default 4) | `"5551234567"` → `"******4567"` |
+| `"first_n"` | Show only first N characters (default 4) | `"5551234567"` → `"5551******"` |
+| `"hash"` | SHA-256 hash (first 8 chars) | `"doruk"` → `"a1b2c3d4"` |
+
+### Strategy Options (MaskingRule)
+
+Use `MaskingRule` for strategies that need configuration:
+
+```python
+from mdbp import MaskingRule
+
+mdbp.add_policy(Policy(
+    entity="customer",
+    role="support",
+    masked_fields={
+        "phone": MaskingRule(strategy="last_n", options={"n": 4}),
+        "credit_card": MaskingRule(strategy="last_n", options={"n": 4}),
+        "email": MaskingRule(strategy="hash", options={"length": 12}),
+    },
+))
+```
+
+### Custom Masking Functions
+
+Provide any callable for full control:
+
+```python
+mdbp.add_policy(Policy(
+    entity="customer",
+    role="support",
+    masked_fields={
+        "ssn": lambda v: "***-**-" + str(v)[-4:],
+        "email": lambda v: v.split("@")[0][0] + "***@" + v.split("@")[1],
+    },
+))
+```
+
+### Masking + Denied Fields
+
+`masked_fields` and `denied_fields` work together:
+
+```python
+mdbp.add_policy(Policy(
+    entity="customer",
+    role="support",
+    denied_fields=["password_hash"],       # query is rejected if requested
+    masked_fields={"email": "email"},      # query succeeds, value is masked
+))
+```
+
+### Config File Support
+
+```json
+{
+    "policies": [{
+        "entity": "customer",
+        "role": "support",
+        "masked_fields": {
+            "email": "email",
+            "phone": {"strategy": "last_n", "options": {"n": 4}}
+        }
+    }]
+}
+```
+
+### Notes
+
+- `None`/null values are never masked — they stay `None`
+- Numeric values are converted to string before masking
+- Masking is applied by the library after query execution, not by the AI
+- Works with all intent types that return data: `list`, `get`, `aggregate`, mutations with `returning`
+
+---
+
+## Dry-Run Mode
+
+Any intent can include `"dry_run": true` to get the compiled SQL and parameters without executing the query. Schema validation and policy enforcement still apply.
+
+```python
+result = mdbp.query({
+    "intent": "list",
+    "entity": "product",
+    "filters": {"price__gte": 100},
+    "fields": ["name", "price"],
+    "dry_run": True
+})
+```
+
+Output:
+
+```json
+{
+    "success": true,
+    "intent": "list",
+    "entity": "product",
+    "dry_run": true,
+    "sql": "SELECT products.name, products.price FROM products WHERE products.price >= :price_1",
+    "params": {"price_1": 100}
+}
+```
+
+Useful for:
+- **Debugging**: See the exact SQL that MDBP generates
+- **Testing**: Validate query structure without hitting the database
+- **Approval workflows**: Review queries before execution
 
 ---
 
@@ -1156,6 +1298,7 @@ class Policy(BaseModel):
     max_rows: int = 1000
     allowed_intents: list[IntentType] = [LIST, GET, COUNT, AGGREGATE]
     row_filter: dict | None = None
+    masked_fields: dict[str, str | MaskingRule | Callable] = {}
 ```
 
 ### IntentType Enum
@@ -1198,6 +1341,7 @@ All queries are parameterized via SQLAlchemy. Raw SQL strings are never construc
 
 - **denied_fields**: Sensitive fields (password_hash, ssn) can never be returned
 - **allowed_fields**: Only whitelisted fields are accessible
+- **masked_fields**: Sensitive fields are returned with masked values (email, phone, etc.)
 - **allowed_intents**: Write operations can be blocked globally or per role
 - **max_rows**: Limits large query results per role
 - **row_filter**: Automatic tenant isolation via injected WHERE conditions
