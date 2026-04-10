@@ -32,6 +32,7 @@ from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import TextContent, Tool
 
+from mdbp.core.audit import PythonAuditLogger, StreamAuditLogger
 from mdbp.core.intent import IntentType
 from mdbp.core.masking import MaskingRule
 from mdbp.core.policy import Policy
@@ -49,9 +50,23 @@ def load_config(config_path: str) -> dict:
         return json.load(f)
 
 
+def _build_audit_logger(audit_conf: dict):
+    """Create an AuditLogger from a config dict."""
+    audit_type = audit_conf.get("type", "python")
+    if audit_type == "python":
+        return PythonAuditLogger(logger_name=audit_conf.get("logger_name", "mdbp.audit"))
+    elif audit_type == "stream":
+        return StreamAuditLogger()
+    return None
+
+
 def build_mdbp_from_config(db_url: str, config: dict) -> MDBP:
     """Create an MDBP instance from a config dict."""
-    mdbp = MDBP(db_url=db_url)
+    audit = None
+    if "audit" in config:
+        audit = _build_audit_logger(config["audit"])
+
+    mdbp = MDBP(db_url=db_url, audit=audit)
 
     # Register entities
     for entity_conf in config.get("entities", []):

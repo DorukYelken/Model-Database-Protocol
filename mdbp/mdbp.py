@@ -20,11 +20,14 @@ Usage as a library:
 
 from __future__ import annotations
 
+import time
+from datetime import datetime, timezone
 from typing import Any
 
 from pydantic import ValidationError
 
 from mdbp.connectors.sql import QueryResult, SQLConnector
+from mdbp.core.audit import AuditEntry, AuditLogger
 from mdbp.core.errors import (
     DatabaseExecutionError,
     IntentTypeNotAllowedError,
@@ -52,6 +55,7 @@ class MDBP:
         db_url: str,
         auto_discover: bool = True,
         allowed_intents: list[str] | None = None,
+        audit: AuditLogger | None = None,
     ) -> None:
         """
         Args:
@@ -60,12 +64,14 @@ class MDBP:
             allowed_intents: Whitelist of allowed intent types.
                              e.g. ["list", "get", "count"] → read-only mode.
                              None = all intents allowed.
+            audit: Audit logger for query logging. None = no logging.
         """
         self.connector = SQLConnector(db_url)
         self.registry = SchemaRegistry()
         self.policy_engine = PolicyEngine()
         self.planner = QueryPlanner(self.registry, self.connector.metadata, dialect=self.connector.engine.dialect.name)
         self.formatter = ResponseFormatter()
+        self._audit = audit
         self.allowed_intents: set[IntentType] | None = (
             {IntentType(i) for i in allowed_intents} if allowed_intents else None
         )
@@ -92,20 +98,31 @@ class MDBP:
         Accepts either a dict (from LLM JSON output) or an Intent object.
         Returns a dict suitable for sending back to the LLM.
         """
+        start = time.perf_counter()
         intent_type = "unknown"
         entity = "unknown"
+        role: str | None = None
+        success = False
+        error_code: str | None = None
+        row_count: int | None = None
+        dry_run = False
+        masked: list[str] = []
+        response_dict: dict[str, Any] = {}
 
         try:
             # 1. Parse intent
             if isinstance(raw_intent, dict):
                 intent_type = raw_intent.get("intent", "unknown")
                 entity = raw_intent.get("entity", "unknown")
+                role = raw_intent.get("role")
                 intent = Intent(**raw_intent)
             else:
                 intent = raw_intent
 
             intent_type = intent.intent.value
             entity = intent.entity
+            role = intent.role
+            dry_run = intent.dry_run
 
             # 2. Check allowed intents
             if self.allowed_intents and intent.intent not in self.allowed_intents:
@@ -147,7 +164,8 @@ class MDBP:
                     dialect=self.connector.engine.dialect,
                     compile_kwargs={"literal_binds": False},
                 )
-                return {
+                success = True
+                response_dict = {
                     "success": True,
                     "intent": intent_type,
                     "entity": entity,
@@ -155,6 +173,7 @@ class MDBP:
                     "sql": str(compiled),
                     "params": {k: v for k, v in (compiled.params or {}).items()},
                 }
+                return response_dict
 
             # 7. Execute
             try:
@@ -168,6 +187,7 @@ class MDBP:
             # 7.5 Apply data masking
             policy = self.policy_engine.find_policy(intent.entity, intent.role)
             if policy and policy.masked_fields and result.rows:
+                masked = list(policy.masked_fields.keys())
                 result = QueryResult(
                     columns=result.columns,
                     rows=apply_masking(result.rows, policy.masked_fields),
@@ -176,31 +196,56 @@ class MDBP:
                 )
 
             # 8. Format response
+            row_count = result.row_count
             response = self.formatter.format(intent, result)
-            return response.to_dict()
+            success = True
+            response_dict = response.to_dict()
+            return response_dict
 
         except ValidationError as e:
             error = IntentValidationError(
                 message=f"Invalid intent structure: {e.error_count()} validation error(s).",
                 details={"errors": e.errors()},
             )
-            return MDBPResponse(
+            error_code = error.code
+            response_dict = MDBPResponse(
                 success=False, intent_type=intent_type, entity=entity, error=error,
             ).to_dict()
+            return response_dict
 
         except MDBPError as e:
-            return MDBPResponse(
+            error_code = e.code
+            response_dict = MDBPResponse(
                 success=False, intent_type=intent_type, entity=entity, error=e,
             ).to_dict()
+            return response_dict
 
         except Exception as e:
             error = MDBPError(
                 message=f"Unexpected error: {e}",
                 details={"type": type(e).__name__},
             )
-            return MDBPResponse(
+            error_code = error.code
+            response_dict = MDBPResponse(
                 success=False, intent_type=intent_type, entity=entity, error=error,
             ).to_dict()
+            return response_dict
+
+        finally:
+            if self._audit:
+                duration_ms = (time.perf_counter() - start) * 1000
+                self._audit.log(AuditEntry(
+                    timestamp=datetime.now(timezone.utc).isoformat(),
+                    intent_type=intent_type,
+                    entity=entity,
+                    role=role,
+                    success=success,
+                    error_code=error_code,
+                    row_count=row_count,
+                    duration_ms=round(duration_ms, 2),
+                    dry_run=dry_run,
+                    masked_fields=masked,
+                ))
 
     def describe_schema(self) -> dict:
         """Return the full schema description (useful for LLM system prompts)."""
