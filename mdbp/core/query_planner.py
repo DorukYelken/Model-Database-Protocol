@@ -554,9 +554,9 @@ class QueryPlanner:
                 col = self._resolve_field(intent, s.field, table, joined)
                 stmt = stmt.order_by(col.desc() if s.order.value == "desc" else col.asc())
 
-        if intent.limit:
+        if intent.limit is not None:
             stmt = stmt.limit(intent.limit)
-        if intent.offset:
+        if intent.offset is not None:
             stmt = stmt.offset(intent.offset)
 
         return stmt
