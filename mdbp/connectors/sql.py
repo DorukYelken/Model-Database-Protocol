@@ -22,6 +22,11 @@ class SQLConnector:
         self.metadata = MetaData()
         self.metadata.reflect(bind=self.engine)
 
+        # BigQuery's metadata.reflect() can't list tables automatically.
+        # Fall back to INFORMATION_SCHEMA and reflect each table explicitly.
+        if not self.metadata.tables and self.engine.dialect.name == "bigquery":
+            self._reflect_bigquery_tables()
+
     def execute(self, statement: Any) -> QueryResult:
         """Execute a SQLAlchemy statement and return results."""
         with self.engine.connect() as conn:
@@ -43,6 +48,17 @@ class SQLConnector:
                     row_count=result.rowcount,
                     is_mutation=True,
                 )
+
+    def _reflect_bigquery_tables(self) -> None:
+        """Discover BigQuery tables via INFORMATION_SCHEMA and reflect each one."""
+        from sqlalchemy import Table
+
+        with self.engine.connect() as conn:
+            result = conn.execute(text("SELECT table_name FROM INFORMATION_SCHEMA.TABLES"))
+            table_names = [row[0] for row in result]
+
+        for name in table_names:
+            Table(name, self.metadata, autoload_with=self.engine)
 
     def dispose(self) -> None:
         """Dispose the engine and release all connections."""
