@@ -56,6 +56,10 @@ class MDBP:
         auto_discover: bool = True,
         allowed_intents: list[str] | None = None,
         audit: AuditLogger | None = None,
+        pool_size: int | None = None,
+        max_overflow: int | None = None,
+        pool_pre_ping: bool | None = None,
+        pool_recycle: int | None = None,
     ) -> None:
         """
         Args:
@@ -65,8 +69,22 @@ class MDBP:
                              e.g. ["list", "get", "count"] → read-only mode.
                              None = all intents allowed.
             audit: Audit logger for query logging. None = no logging.
+            pool_size: SQLAlchemy connection pool size. None = SQLAlchemy default (5).
+            max_overflow: Max connections beyond pool_size. None = SQLAlchemy default (10).
+            pool_pre_ping: Test connections before use. None = SQLAlchemy default (False).
+            pool_recycle: Recycle connections after N seconds. None = no recycle.
         """
-        self.connector = SQLConnector(db_url)
+        engine_kwargs: dict[str, Any] = {}
+        if pool_size is not None:
+            engine_kwargs["pool_size"] = pool_size
+        if max_overflow is not None:
+            engine_kwargs["max_overflow"] = max_overflow
+        if pool_pre_ping is not None:
+            engine_kwargs["pool_pre_ping"] = pool_pre_ping
+        if pool_recycle is not None:
+            engine_kwargs["pool_recycle"] = pool_recycle
+
+        self.connector = SQLConnector(db_url, **engine_kwargs)
         self.registry = SchemaRegistry()
         self.policy_engine = PolicyEngine()
         self.planner = QueryPlanner(self.registry, self.connector.metadata, dialect=self.connector.engine.dialect.name)

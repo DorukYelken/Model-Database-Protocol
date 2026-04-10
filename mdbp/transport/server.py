@@ -66,7 +66,15 @@ def build_mdbp_from_config(db_url: str, config: dict) -> MDBP:
     if "audit" in config:
         audit = _build_audit_logger(config["audit"])
 
-    mdbp = MDBP(db_url=db_url, audit=audit)
+    pool_conf = config.get("pool", {})
+    mdbp = MDBP(
+        db_url=db_url,
+        audit=audit,
+        pool_size=pool_conf.get("pool_size"),
+        max_overflow=pool_conf.get("max_overflow"),
+        pool_pre_ping=pool_conf.get("pool_pre_ping"),
+        pool_recycle=pool_conf.get("pool_recycle"),
+    )
 
     # Register entities
     for entity_conf in config.get("entities", []):

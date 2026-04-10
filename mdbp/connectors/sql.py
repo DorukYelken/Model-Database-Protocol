@@ -17,8 +17,8 @@ from sqlalchemy.engine import Engine
 class SQLConnector:
     """Manages database connection and query execution."""
 
-    def __init__(self, db_url: str) -> None:
-        self.engine: Engine = create_engine(db_url)
+    def __init__(self, db_url: str, **engine_kwargs: Any) -> None:
+        self.engine: Engine = create_engine(db_url, **engine_kwargs)
         self.metadata = MetaData()
         self.metadata.reflect(bind=self.engine)
 
