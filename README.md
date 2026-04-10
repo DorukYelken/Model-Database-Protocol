@@ -14,6 +14,7 @@ LLM Intent (JSON) -> Schema Validation -> Policy Check -> SQLAlchemy Query -> Re
 
 - [Installation](#installation)
 - [Quick Start](#quick-start)
+- [Zero-Config Database Connection](#zero-config-database-connection)
 - [Core Concepts](#core-concepts)
 - [Intent Types](#intent-types)
 - [Filtering](#filtering)
@@ -52,7 +53,7 @@ pip install mdbp[dev]
 - mcp >= 1.0
 
 **Supported Databases:**
-Any SQLAlchemy-supported backend: PostgreSQL, MySQL, SQLite, MSSQL, Oracle, etc.
+Any SQLAlchemy-supported backend: PostgreSQL, MySQL, SQLite, MSSQL, Oracle, BigQuery, etc.
 
 ---
 
@@ -152,6 +153,56 @@ print(result["error"]["code"])           # MDBP_SCHEMA_ENTITY_NOT_FOUND
 print(result["error"]["details"])        # {"available_entities": [...]}
 
 mdbp.dispose()
+```
+
+---
+
+## Zero-Config Database Connection
+
+MDBP supports any SQLAlchemy-compatible database with zero code. Just install the driver and connect:
+
+```bash
+pip install mdbp
+mdbp-server --db-url <DATABASE_URL>
+```
+
+All tables, columns, and types are auto-discovered — no schema definition or server code needed.
+
+**Examples:**
+
+```bash
+# SQLite
+mdbp-server --db-url sqlite:///my.db
+
+# PostgreSQL
+pip install psycopg2
+mdbp-server --db-url postgresql+psycopg2://user:pass@localhost/mydb
+
+# MySQL
+pip install pymysql
+mdbp-server --db-url mysql+pymysql://user:pass@localhost/mydb
+
+# BigQuery
+pip install sqlalchemy-bigquery
+gcloud auth application-default login
+mdbp-server --db-url bigquery://project-id/dataset
+
+# SQL Server
+pip install pyodbc
+mdbp-server --db-url mssql+pyodbc://user:pass@host/db?driver=ODBC+Driver+18+for+SQL+Server
+```
+
+**Claude Desktop / Cursor / MCP Clients:**
+
+```json
+{
+    "mcpServers": {
+        "my-database": {
+            "command": "mdbp-server",
+            "args": ["--db-url", "sqlite:///my.db"]
+        }
+    }
+}
 ```
 
 ---
@@ -749,6 +800,12 @@ Table name to entity name conversion:
 - `products` -> `product`
 - `categories` -> `category`
 - `order_items` -> `order_item`
+
+**BigQuery support:** BigQuery's SQLAlchemy driver can't list tables via standard `MetaData.reflect()`. MDBP automatically falls back to `INFORMATION_SCHEMA.TABLES` to discover tables and reflects each one individually. No extra configuration needed — just pass a BigQuery URL:
+
+```python
+mdbp = MDBP(db_url="bigquery://project-id/dataset")
+```
 
 ### Manual Registration
 
