@@ -12,7 +12,14 @@ license = "MIT"
 authors = [
     {name = "Doruk", email = "dorukyelken@gmail.com"},
 ]
-keywords = ["ai", "llm", "database", "mcp", "intent", "sqlalchemy", "protocol"]
+keywords = [
+    "ai", "llm", "database", "mcp", "intent", "sqlalchemy", "protocol",
+    "sql-safety", "policy-engine", "access-control", "data-masking",
+    "tool-use", "text-to-sql", "llm-database", "mcp-server",
+    "sql-injection-prevention", "rbac", "audit-logging",
+    "structured-query", "ai-database", "hallucination-protection",
+    "tenant-isolation", "bigquery", "postgresql", "mysql", "sqlite",
+]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
