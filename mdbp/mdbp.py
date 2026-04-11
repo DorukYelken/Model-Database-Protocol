@@ -84,7 +84,7 @@ class MDBP:
         if pool_recycle is not None:
             engine_kwargs["pool_recycle"] = pool_recycle
 
-        self.connector = SQLConnector(db_url, **engine_kwargs)
+        self.connector = SQLConnector(db_url, reflect=auto_discover, **engine_kwargs)
         self.registry = SchemaRegistry()
         self.policy_engine = PolicyEngine()
         self.planner = QueryPlanner(self.registry, self.connector.metadata, dialect=self.connector.engine.dialect.name)
@@ -100,6 +100,25 @@ class MDBP:
     def register_entity(self, schema: EntitySchema) -> None:
         """Register an entity schema mapping."""
         self.registry.register(schema)
+
+        # If table not in metadata (e.g. reflection was skipped), create it from schema
+        if schema.table not in self.connector.metadata.tables:
+            from sqlalchemy import Column, Table
+            from sqlalchemy.types import Boolean, DateTime, Integer, Numeric, String
+
+            _type_map = {
+                "text": String, "integer": Integer, "numeric": Numeric,
+                "boolean": Boolean, "datetime": DateTime,
+            }
+            columns = [
+                Column(
+                    f.column,
+                    _type_map.get(f.dtype, String)(),
+                    primary_key=(f.column == schema.primary_key),
+                )
+                for f in schema.fields.values()
+            ]
+            Table(schema.table, self.connector.metadata, *columns)
 
     def dispose(self) -> None:
         """Dispose database connections and release resources."""

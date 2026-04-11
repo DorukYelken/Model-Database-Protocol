@@ -17,15 +17,17 @@ from sqlalchemy.engine import Engine
 class SQLConnector:
     """Manages database connection and query execution."""
 
-    def __init__(self, db_url: str, **engine_kwargs: Any) -> None:
+    def __init__(self, db_url: str, reflect: bool = True, **engine_kwargs: Any) -> None:
         self.engine: Engine = create_engine(db_url, **engine_kwargs)
         self.metadata = MetaData()
-        self.metadata.reflect(bind=self.engine)
 
-        # BigQuery's metadata.reflect() can't list tables automatically.
-        # Fall back to INFORMATION_SCHEMA and reflect each table explicitly.
-        if not self.metadata.tables and self.engine.dialect.name == "bigquery":
-            self._reflect_bigquery_tables()
+        if reflect:
+            self.metadata.reflect(bind=self.engine)
+
+            # BigQuery's metadata.reflect() can't list tables automatically.
+            # Fall back to INFORMATION_SCHEMA and reflect each table explicitly.
+            if not self.metadata.tables and self.engine.dialect.name == "bigquery":
+                self._reflect_bigquery_tables()
 
     def execute(self, statement: Any) -> QueryResult:
         """Execute a SQLAlchemy statement and return results."""
