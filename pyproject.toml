@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "mdbp"
-version = "0.3.4.8"
+version = "0.3.4.9"
 description = "Model Database Protocol — intent-based, secure database access for LLMs with schema validation, policy engine, data masking, and MCP server support"
 readme = "README.md"
 requires-python = ">=3.10"

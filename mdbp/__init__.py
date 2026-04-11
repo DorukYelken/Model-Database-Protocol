@@ -55,4 +55,4 @@ __all__ = [
     "DatabaseExecutionError",
     "NotFoundError",
 ]
-__version__ = "0.3.4.8"
+__version__ = "0.3.4.9"

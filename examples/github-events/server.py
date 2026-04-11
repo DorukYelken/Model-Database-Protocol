@@ -22,6 +22,7 @@ from mdbp.core.policy import Policy
 from mdbp.core.schema_registry import EntitySchema, FieldSchema
 from mdbp.core.audit import StreamAuditLogger
 from mdbp.transport.server import create_server, run_sse, run_stdio
+import sys
 
 DB_URL = "clickhouse+native://explorer:@play.clickhouse.com:9440/default?secure=true"
 
@@ -31,7 +32,7 @@ mdbp = MDBP(
     db_url=DB_URL,
     auto_discover=False,  # ClickHouse Enum types break auto-discover on Python 3.14
     allowed_intents=["list", "get", "count", "aggregate"],  # read-only
-    audit=StreamAuditLogger(),
+    audit=StreamAuditLogger(stream=sys.stderr),
 )
 
 # ── Schema Registration ─────────────────────────────────────
@@ -40,7 +41,7 @@ mdbp.register_entity(EntitySchema(
     entity="github_event",
     table="github_events",
     primary_key="file_time",
-    description="Real-time GitHub events: pushes, PRs, issues, stars, forks, comments. 10.6 billion rows from 2011 to now.",
+    description="Real-time GitHub events: pushes, PRs, issues, stars, forks, comments. 10.6 billion rows from 2011 to now. IMPORTANT: Always add a created_at filter (e.g. created_at__gte: '2026-04-01') when using group_by to avoid memory limits. For aggregate sort, use 'result' as the sort field name.",
     fields={
         "file_time": FieldSchema(column="file_time", dtype="datetime", description="Event file timestamp"),
         "event_type": FieldSchema(column="event_type", dtype="text", description="Event type: PushEvent, WatchEvent, PullRequestEvent, IssuesEvent, ForkEvent, CreateEvent, etc."),
@@ -71,19 +72,11 @@ mdbp.register_entity(EntitySchema(
 
 # ── Policies ─────────────────────────────────────────────────
 
-# Default: read-only, max 100 rows per query
+# Default: read-only, max 25 rows per query (keeps MCP responses under 1MB)
 mdbp.add_policy(Policy(
     entity="github_event",
     role="*",
-    max_rows=100,
-    allowed_intents=["list", "count", "aggregate"],
-))
-
-# Analyst: more rows
-mdbp.add_policy(Policy(
-    entity="github_event",
-    role="analyst",
-    max_rows=1000,
+    max_rows=25,
     allowed_intents=["list", "count", "aggregate"],
 ))
 

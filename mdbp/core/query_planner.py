@@ -30,6 +30,7 @@ from sqlalchemy import (
     func,
     insert,
     literal,
+    literal_column,
     not_,
     or_,
     select,
@@ -658,6 +659,29 @@ class QueryPlanner:
                 h_agg = AGG_FUNCS[h.op](h_col)
                 comp = COMPARISON_OPS.get(h.condition, "__gt__")
                 stmt = stmt.having(getattr(h_agg, comp)(h.value))
+
+        # Sort (supports aggregate result columns like 'result', 'count_id', etc.)
+        # Map common aggregate sort names to the actual label used in SQL
+        _agg_sort_aliases = {"count", "sum", "avg", "min", "max", "total", "cnt"}
+        if intent.sort:
+            for s in intent.sort:
+                field = s.field
+                # If sorting by a generic aggregate name, map to actual label
+                if field.lower() in _agg_sort_aliases:
+                    if intent.aggregation:
+                        field = "result"
+                    elif intent.aggregations:
+                        field = f"{field}_{intent.aggregations[0].field}"
+                try:
+                    col = self._resolve_field(intent, field, table, joined)
+                except Exception:
+                    col = literal_column(field)
+                stmt = stmt.order_by(col.desc() if s.order.value == "desc" else col.asc())
+
+        if intent.limit is not None:
+            stmt = stmt.limit(intent.limit)
+        if intent.offset is not None:
+            stmt = stmt.offset(intent.offset)
 
         return stmt
 
